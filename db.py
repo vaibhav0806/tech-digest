@@ -35,8 +35,10 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS bookmarks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_id INTEGER NOT NULL UNIQUE,
+            session_id TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
             created_at TEXT NOT NULL,
+            UNIQUE(session_id, product_id),
             FOREIGN KEY (product_id) REFERENCES products(id)
         );
 
@@ -49,6 +51,23 @@ def init_db():
             status TEXT DEFAULT 'running'
         );
     """)
+    # Migrate old bookmarks table (no session_id column) to new schema
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(bookmarks)").fetchall()]
+    if "session_id" not in cols:
+        conn.executescript("""
+            ALTER TABLE bookmarks RENAME TO bookmarks_old;
+            CREATE TABLE bookmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                product_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(session_id, product_id),
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            );
+            INSERT INTO bookmarks (session_id, product_id, created_at)
+                SELECT 'legacy', product_id, created_at FROM bookmarks_old;
+            DROP TABLE bookmarks_old;
+        """)
     conn.close()
 
 
@@ -66,41 +85,42 @@ def upsert_product(conn: sqlite3.Connection, product: dict):
     """, product)
 
 
-def get_products(source: str | None = None, limit: int = 60) -> list[dict]:
+def get_products(source: str | None = None, limit: int = 60, session_id: str = "") -> list[dict]:
     conn = get_conn()
     if source:
         rows = conn.execute(
-            "SELECT p.*, (b.id IS NOT NULL) as bookmarked FROM products p LEFT JOIN bookmarks b ON p.id = b.product_id WHERE p.source = ? ORDER BY p.scraped_at DESC, p.score DESC LIMIT ?",
-            (source, limit),
+            "SELECT p.*, (b.id IS NOT NULL) as bookmarked FROM products p LEFT JOIN bookmarks b ON p.id = b.product_id AND b.session_id = ? WHERE p.source = ? ORDER BY p.scraped_at DESC, p.score DESC LIMIT ?",
+            (session_id, source, limit),
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT p.*, (b.id IS NOT NULL) as bookmarked FROM products p LEFT JOIN bookmarks b ON p.id = b.product_id ORDER BY p.scraped_at DESC, p.score DESC LIMIT ?",
-            (limit,),
+            "SELECT p.*, (b.id IS NOT NULL) as bookmarked FROM products p LEFT JOIN bookmarks b ON p.id = b.product_id AND b.session_id = ? ORDER BY p.scraped_at DESC, p.score DESC LIMIT ?",
+            (session_id, limit),
         ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def get_bookmarked_products() -> list[dict]:
+def get_bookmarked_products(session_id: str) -> list[dict]:
     conn = get_conn()
     rows = conn.execute(
-        "SELECT p.*, 1 as bookmarked FROM products p INNER JOIN bookmarks b ON p.id = b.product_id ORDER BY b.created_at DESC"
+        "SELECT p.*, 1 as bookmarked FROM products p INNER JOIN bookmarks b ON p.id = b.product_id WHERE b.session_id = ? ORDER BY b.created_at DESC",
+        (session_id,),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def toggle_bookmark(product_id: int) -> bool:
+def toggle_bookmark(product_id: int, session_id: str) -> bool:
     conn = get_conn()
-    existing = conn.execute("SELECT id FROM bookmarks WHERE product_id = ?", (product_id,)).fetchone()
+    existing = conn.execute("SELECT id FROM bookmarks WHERE session_id = ? AND product_id = ?", (session_id, product_id)).fetchone()
     if existing:
-        conn.execute("DELETE FROM bookmarks WHERE product_id = ?", (product_id,))
+        conn.execute("DELETE FROM bookmarks WHERE session_id = ? AND product_id = ?", (session_id, product_id))
         conn.commit()
         conn.close()
         return False
     else:
-        conn.execute("INSERT INTO bookmarks (product_id, created_at) VALUES (?, ?)", (product_id, datetime.now(timezone.utc).isoformat()))
+        conn.execute("INSERT INTO bookmarks (session_id, product_id, created_at) VALUES (?, ?, ?)", (session_id, product_id, datetime.now(timezone.utc).isoformat()))
         conn.commit()
         conn.close()
         return True
