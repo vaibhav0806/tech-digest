@@ -143,6 +143,17 @@ def log_scrape_end(log_id: int, items_count: int, status: str = "ok"):
     conn.close()
 
 
+def get_last_scraped_at() -> str | None:
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT finished_at FROM scrape_log WHERE status = 'ok' ORDER BY finished_at DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    if row and row["finished_at"]:
+        return row["finished_at"][:10]
+    return None
+
+
 def get_latest_products_for_digest(source: str, limit: int = 10) -> list[dict]:
     conn = get_conn()
     rows = conn.execute(
