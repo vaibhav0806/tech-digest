@@ -10,7 +10,7 @@ body{background:#0a0a0a;color:#ccc;font-family:'SF Mono',SFMono-Regular,Consolas
 a{color:#8be9fd;text-decoration:none}
 a:hover{text-decoration:underline}
 .header{border-bottom:1px solid #333;padding-bottom:12px;margin-bottom:20px}
-.header h1{font-size:18px;color:#f8f8f2;font-weight:normal;letter-spacing:2px;text-transform:uppercase}
+.header h1{font-size:18px;color:#f8f8f2;font-weight:normal;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center}
 .tabs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .tabs a{padding:4px 12px;border:1px solid #333;color:#888;font-size:12px;text-decoration:none}
 .tabs a:hover,.tabs a.active{color:#f8f8f2;border-color:#f8f8f2}
@@ -34,7 +34,7 @@ a:hover{text-decoration:underline}
 </head>
 <body>
 <div class="header">
-  <h1>Tech Digest</h1>
+  <h1><img src="/static/techdigest.png" alt="Tech Digest" height="24" style="vertical-align:middle;margin-right:6px">Tech Digest</h1>
   <nav class="tabs">
     <a href="/" class="{% if source == 'all' %}active{% endif %}">all</a>
     <a href="/?source=hn" class="{% if source == 'hn' %}active{% endif %}">hn</a>
