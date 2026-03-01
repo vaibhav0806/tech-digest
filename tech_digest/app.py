@@ -10,7 +10,7 @@ from .config import SCRAPE_SECRET, SESSION_COOKIE, SESSION_MAX_AGE
 from .db import get_bookmarked_products, get_products, init_db, toggle_bookmark
 from .services import run_scrape
 
-PAGE_SIZE = 30
+PAGE_SIZE = 15
 
 
 @asynccontextmanager
