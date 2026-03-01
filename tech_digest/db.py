@@ -2,12 +2,12 @@ import sqlite3
 import os
 from datetime import datetime, timezone
 
-DB_PATH = os.environ.get("DATABASE_PATH", os.path.join(os.path.dirname(__file__), "data", "products.db"))
+from .config import DATABASE_PATH
 
 
 def get_conn() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+    conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
@@ -85,27 +85,27 @@ def upsert_product(conn: sqlite3.Connection, product: dict):
     """, product)
 
 
-def get_products(source: str | None = None, limit: int = 60, session_id: str = "") -> list[dict]:
+def get_products(source: str | None = None, limit: int = 60, offset: int = 0, session_id: str = "") -> list[dict]:
     conn = get_conn()
     if source:
         rows = conn.execute(
-            "SELECT p.*, (b.id IS NOT NULL) as bookmarked FROM products p LEFT JOIN bookmarks b ON p.id = b.product_id AND b.session_id = ? WHERE p.source = ? ORDER BY p.scraped_at DESC, p.score DESC LIMIT ?",
-            (session_id, source, limit),
+            "SELECT p.*, (b.id IS NOT NULL) as bookmarked FROM products p LEFT JOIN bookmarks b ON p.id = b.product_id AND b.session_id = ? WHERE p.source = ? ORDER BY p.scraped_at DESC, p.score DESC LIMIT ? OFFSET ?",
+            (session_id, source, limit, offset),
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT p.*, (b.id IS NOT NULL) as bookmarked FROM products p LEFT JOIN bookmarks b ON p.id = b.product_id AND b.session_id = ? ORDER BY p.scraped_at DESC, p.score DESC LIMIT ?",
-            (session_id, limit),
+            "SELECT p.*, (b.id IS NOT NULL) as bookmarked FROM products p LEFT JOIN bookmarks b ON p.id = b.product_id AND b.session_id = ? ORDER BY p.scraped_at DESC, p.score DESC LIMIT ? OFFSET ?",
+            (session_id, limit, offset),
         ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def get_bookmarked_products(session_id: str) -> list[dict]:
+def get_bookmarked_products(session_id: str, limit: int = 30, offset: int = 0) -> list[dict]:
     conn = get_conn()
     rows = conn.execute(
-        "SELECT p.*, 1 as bookmarked FROM products p INNER JOIN bookmarks b ON p.id = b.product_id WHERE b.session_id = ? ORDER BY b.created_at DESC",
-        (session_id,),
+        "SELECT p.*, 1 as bookmarked FROM products p INNER JOIN bookmarks b ON p.id = b.product_id WHERE b.session_id = ? ORDER BY b.created_at DESC LIMIT ? OFFSET ?",
+        (session_id, limit, offset),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]

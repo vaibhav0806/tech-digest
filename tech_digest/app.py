@@ -1,28 +1,16 @@
-import os
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from db import (
-    get_bookmarked_products,
-    get_conn,
-    get_products,
-    init_db,
-    log_scrape_end,
-    log_scrape_start,
-    toggle_bookmark,
-    upsert_product,
-)
-from scraper import scrape_hn, scrape_ph
-from telegram import send_telegram_digest
+from .config import SCRAPE_SECRET, SESSION_COOKIE, SESSION_MAX_AGE
+from .db import get_bookmarked_products, get_products, init_db, toggle_bookmark
+from .services import run_scrape
 
-SCRAPE_SECRET = os.environ.get("SCRAPE_SECRET", "")
-SESSION_COOKIE = "session_id"
-SESSION_MAX_AGE = 365 * 24 * 60 * 60  # 1 year
-
+PAGE_SIZE = 30
 
 
 @asynccontextmanager
@@ -33,21 +21,27 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(
-    directory=os.path.join(os.path.dirname(__file__), "templates")
+    directory=str(Path(__file__).resolve().parent.parent / "templates")
 )
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, source: str | None = None):
+async def index(request: Request, source: str | None = None, page: int = 1):
+    page = max(1, page)
+    offset = (page - 1) * PAGE_SIZE
     session_id = request.cookies.get(SESSION_COOKIE) or str(uuid.uuid4())
-    products = get_products(source=source, session_id=session_id)
+    products = get_products(source=source, limit=PAGE_SIZE + 1, offset=offset, session_id=session_id)
+    has_next = len(products) > PAGE_SIZE
+    products = products[:PAGE_SIZE]
     response = templates.TemplateResponse(
         "index.html",
         {
             "request": request,
             "products": products,
             "source": source or "all",
-            "page": "index",
+            "view": "index",
+            "page": page,
+            "has_next": has_next,
         },
     )
     if SESSION_COOKIE not in request.cookies:
@@ -56,16 +50,22 @@ async def index(request: Request, source: str | None = None):
 
 
 @app.get("/bookmarks", response_class=HTMLResponse)
-async def bookmarks_page(request: Request):
+async def bookmarks_page(request: Request, page: int = 1):
+    page = max(1, page)
+    offset = (page - 1) * PAGE_SIZE
     session_id = request.cookies.get(SESSION_COOKIE) or str(uuid.uuid4())
-    products = get_bookmarked_products(session_id)
+    products = get_bookmarked_products(session_id, limit=PAGE_SIZE + 1, offset=offset)
+    has_next = len(products) > PAGE_SIZE
+    products = products[:PAGE_SIZE]
     response = templates.TemplateResponse(
         "index.html",
         {
             "request": request,
             "products": products,
             "source": "bookmarks",
-            "page": "bookmarks",
+            "view": "bookmarks",
+            "page": page,
+            "has_next": has_next,
         },
     )
     if SESSION_COOKIE not in request.cookies:
@@ -89,25 +89,4 @@ async def trigger_scrape(authorization: str = Header(None)):
     if authorization != f"Bearer {SCRAPE_SECRET}":
         raise HTTPException(401, "Invalid secret")
 
-    async def do_scrape(source_name, coro):
-        log_id = log_scrape_start(source_name)
-        try:
-            items = await coro
-            conn = get_conn()
-            for item in items:
-                upsert_product(conn, item)
-            conn.commit()
-            conn.close()
-            log_scrape_end(log_id, len(items))
-            return len(items)
-        except Exception as e:
-            log_scrape_end(log_id, 0, f"error: {e}")
-            return 0
-
-    hn_top = await do_scrape("hn_top", scrape_hn("top"))
-    hn_show = await do_scrape("hn_show", scrape_hn("show"))
-    ph = await do_scrape("ph", scrape_ph())
-
-    await send_telegram_digest()
-
-    return {"hn_top": hn_top, "hn_show": hn_show, "ph": ph}
+    return await run_scrape()

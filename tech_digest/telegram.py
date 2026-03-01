@@ -1,9 +1,7 @@
-import os
 import httpx
-from db import get_latest_products_for_digest
 
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-CHAT_ID = os.environ.get("TELEGRAM_CHANNEL_ID", os.environ.get("TELEGRAM_CHAT_ID", ""))
+from .config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from .db import get_latest_products_for_digest
 
 
 def format_digest() -> str:
@@ -36,16 +34,16 @@ def format_digest() -> str:
 
 
 async def send_telegram_digest():
-    if not BOT_TOKEN or not CHAT_ID:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("Telegram not configured (missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID), skipping.")
         return
 
     text = format_digest()
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
             json={
-                "chat_id": CHAT_ID,
+                "chat_id": TELEGRAM_CHAT_ID,
                 "text": text,
                 "parse_mode": "HTML",
                 "disable_web_page_preview": True,

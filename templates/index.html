@@ -26,6 +26,10 @@ a:hover{text-decoration:underline}
 .star{cursor:pointer;font-size:16px;color:#333;background:none;border:none;padding:2px 6px}
 .star:hover,.star.active{color:#f1fa8c}
 .empty-state{color:#444;padding:40px 0;text-align:center}
+.pagination{display:flex;justify-content:center;align-items:center;gap:16px;padding:20px 0;font-size:12px}
+.pagination a{padding:4px 12px;border:1px solid #333;color:#888;text-decoration:none}
+.pagination a:hover{color:#f8f8f2;border-color:#f8f8f2}
+.pagination span{color:#666}
 </style>
 </head>
 <body>
@@ -56,8 +60,24 @@ a:hover{text-decoration:underline}
 </div>
 {% endfor %}
 {% else %}
-<div class="empty-state">No items yet. Run scrape_job.py to populate.</div>
+<div class="empty-state">{% if view == 'bookmarks' %}No bookmarks yet.{% else %}No items yet.{% endif %}</div>
 {% endif %}
+
+{% if page > 1 or has_next %}
+<nav class="pagination">
+  {% if page > 1 %}
+  <a href="{% if view == 'bookmarks' %}/bookmarks?page={{ page - 1 }}{% elif source != 'all' %}/?source={{ source }}&page={{ page - 1 }}{% else %}/?page={{ page - 1 }}{% endif %}">&larr; prev</a>
+  {% endif %}
+  <span>page {{ page }}</span>
+  {% if has_next %}
+  <a href="{% if view == 'bookmarks' %}/bookmarks?page={{ page + 1 }}{% elif source != 'all' %}/?source={{ source }}&page={{ page + 1 }}{% else %}/?page={{ page + 1 }}{% endif %}">next &rarr;</a>
+  {% endif %}
+</nav>
+{% endif %}
+
+<footer style="border-top:1px solid #333;margin-top:40px;padding-top:12px;text-align:center;color:#444;font-size:11px">
+  Made by <a href="https://x.com/ig_vaibhav1" target="_blank" rel="noopener">@ig_vaibhav1</a>
+</footer>
 
 <script>
 async function toggleBookmark(el, id) {

@@ -15,13 +15,13 @@ Aggregates top posts from Hacker News and Product Hunt into a single feed with a
 
 ```bash
 # Install dependencies
-pip install -e .
+uv sync
 
 # Populate the database
 python scrape_job.py
 
 # Start the server
-uvicorn app:app --reload
+uvicorn tech_digest.app:app --reload
 ```
 
 Open [http://localhost:8000](http://localhost:8000).
@@ -45,12 +45,32 @@ Open [http://localhost:8000](http://localhost:8000).
 | `/bookmark/{id}` | POST | Toggle bookmark |
 | `/scrape` | POST | Trigger scrape + Telegram digest (requires `Authorization: Bearer <SCRAPE_SECRET>`) |
 
+## Project Structure
+
+```
+hackernews-scraper/
+├── tech_digest/
+│   ├── __init__.py       # package marker
+│   ├── app.py            # FastAPI app + routes
+│   ├── config.py         # all env vars
+│   ├── db.py             # SQLite database layer
+│   ├── scraper.py        # HN + Product Hunt scrapers
+│   ├── services.py       # shared scrape orchestration
+│   └── telegram.py       # Telegram digest sender
+├── templates/
+│   └── index.html
+├── scrape_job.py         # CLI entry point
+├── pyproject.toml
+├── Procfile
+└── README.md
+```
+
 ## Deployment
 
 Includes a `Procfile` for Heroku / Railway / Render:
 
 ```
-web: uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}
+web: uvicorn tech_digest.app:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
 Set up a cron job or scheduler to hit `POST /scrape` periodically.
