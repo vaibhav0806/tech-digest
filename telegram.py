@@ -3,7 +3,7 @@ import httpx
 from db import get_latest_products_for_digest
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+CHAT_ID = os.environ.get("TELEGRAM_CHANNEL_ID", os.environ.get("TELEGRAM_CHAT_ID", ""))
 
 
 def format_digest() -> str:
