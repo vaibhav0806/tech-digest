@@ -30,6 +30,7 @@ def format_digest() -> str:
                 lines.append(f"   {tagline[:100]}")
         lines.append("")
 
+    lines.append('<a href="https://techdigest.live">techdigest.live</a>')
     return "\n".join(lines)
 
 

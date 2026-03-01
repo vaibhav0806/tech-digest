@@ -63,7 +63,8 @@ async def scrape_ph() -> list[dict]:
         tagline = ""
         if content_html:
             soup = BeautifulSoup(content_html, "html.parser")
-            tagline = soup.get_text(strip=True)[:200]
+            first_p = soup.find("p")
+            tagline = (first_p.get_text(strip=True) if first_p else soup.contents[0].strip() if soup.contents else "")[:200]
 
         source_id = entry_id or url
         products.append({
