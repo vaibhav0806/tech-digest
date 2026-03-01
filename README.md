@@ -1,5 +1,7 @@
 # Tech Digest
 
+**[techdigest.live](https://techdigest.live)**
+
 Aggregates top posts from Hacker News and Product Hunt into a single feed with a clean dark UI. Optionally sends a daily digest to a Telegram channel.
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue)
