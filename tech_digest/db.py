@@ -156,9 +156,18 @@ def get_last_scraped_at() -> str | None:
 
 def get_latest_products_for_digest(source: str, limit: int = 10) -> list[dict]:
     conn = get_conn()
+    # Get the most recent scraped_at for this source, then pick posts from that scrape run
+    latest = conn.execute(
+        "SELECT MAX(scraped_at) as latest FROM products WHERE source = ?", (source,)
+    ).fetchone()
+    if not latest or not latest["latest"]:
+        conn.close()
+        return []
+    # Posts from the latest scrape (same date prefix) sorted by score
+    latest_date = latest["latest"][:10]  # YYYY-MM-DD
     rows = conn.execute(
-        "SELECT * FROM products WHERE source = ? ORDER BY score DESC, scraped_at DESC LIMIT ?",
-        (source, limit),
+        "SELECT * FROM products WHERE source = ? AND scraped_at >= ? ORDER BY score DESC LIMIT ?",
+        (source, latest_date, limit),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
